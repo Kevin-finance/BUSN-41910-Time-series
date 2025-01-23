@@ -1,0 +1,71 @@
+# ----
+library(readxl)
+library(here)
+
+# Use the here package to construct the file path
+library(readxl)
+library(here)
+library(dplyr)
+
+# Use the here package to construct the file path
+seasonal = read_excel(here("data", "Case-Shiller_HP_adjusted.xlsx"), sheet = "Monthly")
+non_seasonal = read_excel(here("data", "Case-Shiller_HP_nonadjusted.xlsx"), sheet = "Monthly")
+
+log_diff <- function(x) {
+  c(NA, diff(log(x)))
+}
+
+# Apply log and diff to numeric columns using dplyr 
+seasonal_log_diff = seasonal %>% 
+  mutate(across(where(is.numeric), log_diff, .names = "log_diff_adjusted")) 
+
+non_seasonal_log_diff = non_seasonal %>% 
+  mutate(across(where(is.numeric), log_diff, .names = "log_diff_nonadjusted")) 
+
+# (a) Examine the ACF of the raw growth rates out through lag 48. 
+# Do you see a pattern in the autocorrelations?  Explain 
+# par(mfrow=c(2,1)) 
+
+acf_non_seasonal = acf(non_seasonal_log_diff$log_diff_nonadjusted, na.action = na.pass, lag.max = 48)
+ar1_model_non_seasonal = arima(non_seasonal_log_diff$log_diff_nonadjusted, order = c(1, 0, 0))
+
+# par(mfrow=c(1,1))
+# print((acf_seasonal))
+# print((acf_non_seasonal))
+
+# Non-adjusted series has no clear autocorrelation pattern rather it exhibits seasonal pattern 
+# where the autocorrelation is shrinks until summer and then spikes up again as it goes toward winter. 
+
+# (b) Do you think an AR(1) model would work for the raw data? Explain. 
+# par(mfrow=c(2,1))
+acf(ar1_model_seasonal$residuals, main = "ACF of Residuals for Seasonal AR(1) Model", na.action = na.pass)
+acf(ar1_model_non_seasonal$residuals, main = "ACF of Residuals for Non-Seasonal AR(1) Model", na.action = na.pass)
+
+# par(mfrow=c(1,1))
+# In order for AR(1) model to work, the residual of the model should have no significant dependence.
+# However, for the non seasonal data, quite a few lags sit above the blue line which is 95% confidence interval 
+# that autocorelation is not zero.  
+
+
+# (c) Examine the ACF of the adjusted rates. Do you see the same pattern?  Explain. 
+
+acf_seasonal = acf(seasonal_log_diff$log_diff_adjusted, na.action = na.pass, lag.max = 48)
+
+# No, we do not see the same pattern. The adjusted rates have a clear pattern of autocorrelation that decays slowly over time.
+# The adjusted rates have a highest autocorrelation at lag 1, .942, and then .89 at lag 2, .85 at lag 3, etc.
+
+# (d) Fit an AR(1) model to this data.  
+ar1_model_seasonal = arima(seasonal_log_diff$log_diff_adjusted, order = c(1,0,0))
+
+# # (e) Examine the residual autocorrelations.
+acf(ar1_model_seasonal$residuals, main = "ACF of Residuals for Seasonal AR(1) Model", na.action = na.pass)
+
+# (f) Does the AR(1) model fit the data? 
+
+
+# (g) Using residual diagnostics and/or the PACF, find an AR(p) model that fits the data well.
+
+# (h) Build the one step ahead forecast for every observation in the sample using your fitted AR(p) model.
+# Plot the forecast and the real data on the same plot. 
+
+# (i) What is one step ahead out of sample forecast (i.e. the forecast of T+1) and find the 95%  prediction interval.
